@@ -27,31 +27,47 @@ public:
     ~Sphere() override = default;
 
     bool intersect(const Ray &r, Hit &h, float tmin) override {
-        //
-        float distance; //测量出的球心到射线距离
-        Vector3f l(center.x()-r.getOrigin().x(), center.y()-r.getOrigin().y(), center.z()-r.getOrigin().z());
-        Vector3f dir = r.getDirection().normalized();
-        float tp = Vector3f::dot(l, dir);
+        Vector3f oc = r.getOrigin() - center;
+        Vector3f d = r.getDirection();
 
-        if (tp<0) return false; //默认在球体外面，而且发射光向量和l夹角大于90度，没有交点
+        // a*t² + b*t + c = 0
+        float a = Vector3f::dot(d, d);
+        float b = 2.0f * Vector3f::dot(oc, d);
+        float c = Vector3f::dot(oc, oc) - radius * radius;
 
-        float d_2 = l.squaredLength() - tp*tp;
-        if (d_2 > radius*radius) return false; //不相交
+        float delta = b * b - 4 * a * c;
 
-        //确认相交
-        float t_2 = radius*radius - d_2;
-        float t_1 = sqrt(t_2);
-        float t = tp - t_1;
-        if(t>h.getT() || t<tmin) return false; //能相交，但是不改变什么
+        if (delta < 0)
+            return false;
 
-        //确认相交且需要更新相交数据
-        Vector3f hitPoint = r.getOrigin() + t * dir;
-        Vector3f normal((hitPoint - center).normalized());
-        Vector3f finalNormal = normal;
-        if (Vector3f::dot(finalNormal, dir) > 0) {
-            finalNormal = -finalNormal;  // 让法线指向射线来的方向
-        }
-        h.set(t, material, finalNormal);
+        float sqrtDelta = sqrt(delta);
+
+        float t0 = (-b - sqrtDelta) / (2 * a);
+        float t1 = (-b + sqrtDelta) / (2 * a);
+
+        // 保证 t0 <= t1
+        if (t0 > t1)
+            std::swap(t0, t1);
+
+        float t;
+
+        // 取最近的合法交点
+        if (t0 >= tmin)
+            t = t0;
+        else if (t1 >= tmin)
+            t = t1;
+        else
+            return false;
+
+        if (t >= h.getT())
+            return false;
+
+        Vector3f hitPoint = r.pointAtParameter(t);
+
+        // 几何法线，不要翻转
+        Vector3f normal = (hitPoint - center).normalized();
+
+        h.set(t, material, normal, hitPoint);
 
         return true;
     }

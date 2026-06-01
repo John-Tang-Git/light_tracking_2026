@@ -26,12 +26,26 @@ public:
     }
 
     virtual bool intersect(const Ray &r, Hit &h, float tmin) {
+        // 将射线从世界坐标变换到局部坐标
         Vector3f trSource = transformPoint(transform, r.getOrigin());
         Vector3f trDirection = transformDirection(transform, r.getDirection());
         Ray tr(trSource, trDirection);
+        
+        // 在局部坐标系中进行求交
         bool inter = o->intersect(tr, h, tmin);
+        
         if (inter) {
-            h.set(h.getT(), h.getMaterial(), transformDirection(transform.transposed(), h.getNormal()).normalized());
+            // 计算局部坐标系中的交点
+            Vector3f localPoint = tr.pointAtParameter(h.getT());
+            
+            // 变换到世界坐标系
+            Vector3f worldPoint = transformPoint(transform.inverse(), localPoint);
+            
+            // 变换法线（逆转置矩阵）
+            Vector3f worldNormal = transformDirection(transform.transposed(), h.getNormal()).normalized();
+            
+            // 存储结果（t 保持不变，因为是射线参数，与坐标系无关）
+            h.set(h.getT(), h.getMaterial(), worldNormal, worldPoint);
         }
         return inter;
     }

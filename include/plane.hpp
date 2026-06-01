@@ -35,7 +35,7 @@ public:
         if(t<tmin || t>h.getT()) return false; //没完成目标
 
         //能完成更新
-        h.set(t, material, normal);
+        h.set(t, material, normal, r.pointAtParameter(t));
         return true;
     }
 

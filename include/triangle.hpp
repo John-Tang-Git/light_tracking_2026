@@ -54,7 +54,8 @@ public:
 			if (Vector3f::dot(finalNormal, Rd) > 0) {
 				finalNormal = -finalNormal;
 			}
-			hit.set(t, material, finalNormal);
+			Vector3f hitPoint = ray.pointAtParameter(t);
+			hit.set(t, material, finalNormal, hitPoint);
 			return true;
 		}else{
 			return false;

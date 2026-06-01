@@ -239,10 +239,14 @@ Material *SceneParser::parseMaterial() {
     char token[MAX_PARSER_TOKEN_LENGTH];
     char filename[MAX_PARSER_TOKEN_LENGTH];
     filename[0] = 0;
-    Vector3f diffuseColor(1, 1, 1), specularColor(0, 0, 0);
+    Vector3f diffuseColor(1,1,1), specularColor(0,0,0);
+    Vector3f reflectiveColor(0,0,0), transmissiveColor(0,0,0);
     float shininess = 0;
+    float ior = 1.0;
+
     getToken(token);
-    assert (!strcmp(token, "{"));
+    assert(!strcmp(token, "{"));
+    
     while (true) {
         getToken(token);
         if (strcmp(token, "diffuseColor") == 0) {
@@ -251,15 +255,23 @@ Material *SceneParser::parseMaterial() {
             specularColor = readVector3f();
         } else if (strcmp(token, "shininess") == 0) {
             shininess = readFloat();
+        } else if (strcmp(token, "reflectiveColor") == 0) {  // 新增
+            reflectiveColor = readVector3f();
+        } else if (strcmp(token, "transmissiveColor") == 0) { // 新增
+            transmissiveColor = readVector3f();
+        } else if (strcmp(token, "ior") == 0) {               // 新增
+            ior = readFloat();
         } else if (strcmp(token, "texture") == 0) {
-            // Optional: read in texture and draw it.
             getToken(filename);
         } else {
             assert (!strcmp(token, "}"));
             break;
         }
     }
-    auto *answer = new Material(diffuseColor, specularColor, shininess);
+    
+    // 需要修改 Material 类的构造函数，增加新参数
+    auto *answer = new Material(diffuseColor, specularColor, shininess,
+                                reflectiveColor, transmissiveColor, ior);
     return answer;
 }
 

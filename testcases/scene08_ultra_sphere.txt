@@ -1,0 +1,152 @@
+PerspectiveCamera {
+    center 0 0 10
+    direction 0 0 -1
+    up 0 1 0
+    angle 25
+    width 400
+    height 400
+}
+
+Lights {
+    numLights 2
+    PointLight {
+        position 0 10 5
+        color 1 1 1
+    }
+    PointLight {
+        position -2 5 8
+        color 0.5 0.5 1
+    }
+}
+
+Background {
+    color 0 0 0 
+}
+
+Materials {
+    numMaterials 7
+
+    Material {
+        diffuseColor 0.0 0.0 0.0
+        specularColor 1.0 1.0 1.0
+        shininess 200.0
+        reflectiveColor 0.95 0.95 0.95
+        transmissiveColor 0.0 0.0 0.0
+        ior 1.0
+    }
+
+    Material {
+        diffuseColor 0.3 0.1 0.1
+        specularColor 1.0 1.0 1.0
+        shininess 200.0
+        reflectiveColor 0.15 0.15 0.15
+        transmissiveColor 0.8 0.1 0.1
+        ior 1.52
+    }
+
+    Material {
+        diffuseColor 0.1 0.3 0.1
+        specularColor 1.0 1.0 1.0
+        shininess 200.0
+        reflectiveColor 0.15 0.15 0.15
+        transmissiveColor 0.1 0.8 0.1
+        ior 1.52
+    }
+
+    Material {
+        diffuseColor 0.8 0.7 0.2
+        specularColor 1.0 0.9 0.4
+        shininess 180.0
+        reflectiveColor 0.8 0.7 0.3
+        transmissiveColor 0.0 0.0 0.0
+        ior 1.0
+    }
+
+    Material {
+        diffuseColor 0.7 0.2 0.7
+        specularColor 1.0 1.0 1.0
+        shininess 160.0
+        reflectiveColor 0.5 0.2 0.5
+        transmissiveColor 0.0 0.0 0.0
+        ior 1.0
+    }
+
+    Material {
+        diffuseColor 0.3 0.3 0.5
+        specularColor 0.3 0.3 0.3
+        shininess 30.0
+        reflectiveColor 0.0 0.0 0.0
+        transmissiveColor 0.0 0.0 0.0
+        ior 1.0
+    }
+
+    Material { diffuseColor 1 1 1 
+	specularColor 1 1 1
+	shininess 20}
+}
+
+Group {
+    numObjects 7
+
+
+
+    MaterialIndex 0
+    Transform {
+        Translate -2.5 0.5 -2
+        Sphere {
+            center 0 0 0
+            radius 0.7
+        }
+    }
+
+    MaterialIndex 1
+    Transform {
+        Translate -0.8 0.6 -2.5
+        Sphere {
+            center 0 0 0
+            radius 0.7
+        }
+    }
+
+    MaterialIndex 2
+    Transform {
+        Translate 0.8 0.6 -2.5
+        Sphere {
+            center 0 0 0
+            radius 0.7
+        }
+    }
+
+    MaterialIndex 3
+    Transform {
+        Translate 2.5 0.5 -2
+        Sphere {
+            center 0 0 0
+            radius 0.7
+        }
+    }
+
+    MaterialIndex 4
+    Transform {
+        Translate 0 0.8 -1.5
+        Sphere {
+            center 0 0 0
+            radius 0.6
+        }
+    }
+
+    MaterialIndex 0
+    Transform {
+        Translate 0 0.4 -4
+        Sphere {
+            center 0 0 0
+            radius 0.5
+        }
+    }
+
+    MaterialIndex 6
+    Plane {
+	normal 0 1 0
+        offset -2
+    }
+}

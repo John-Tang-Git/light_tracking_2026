@@ -13,3 +13,5 @@ build/PA1 testcases/scene04_axes.txt output/scene04.bmp
 build/PA1 testcases/scene05_bunny_200.txt output/scene05.bmp
 build/PA1 testcases/scene06_bunny_1k.txt output/scene06.bmp
 build/PA1 testcases/scene07_shine.txt output/scene07.bmp
+build/PA1 testcases/scene08_ultra_sphere.txt output/scene08.bmp
+build/PA1 testcases/scene09_simple_sphere.txt output/scene09.bmp
