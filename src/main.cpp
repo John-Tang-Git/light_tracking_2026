@@ -49,61 +49,107 @@ Vector3f refract(const Vector3f& I, const Vector3f& N, float ior) {
     return eta * I + (eta * cosi - sqrt(k)) * n;
 }
 
+
+
 Vector3f IntersectColor(Ray ray, int depth) {
     Hit hit;
     bool isIntersect = baseGroup->intersect(ray, hit, EPSILON);
     
-    if (isIntersect) {
-        Vector3f finalColor = Vector3f::ZERO;
-        
-        // 直接光照
-        for (int li = 0; li < sceneParser->getNumLights(); ++li) {
-            Light* light = sceneParser->getLight(li);
-            Vector3f L, lightColor;
-            light->getIllumination(ray.pointAtParameter(hit.getT()), L, lightColor);
-            finalColor += hit.getMaterial()->Shade(ray, hit, L, lightColor);
-        }
-        
-        if (depth >= MAX_DEPTH) {
-            return finalColor;
-        }
-
-        Vector3f hitPoint = hit.getIntersectionPoint();
-        Vector3f N = hit.getNormal().normalized();
-        Vector3f V = ray.getDirection().normalized();
-
-        // ========== 反射 ==========
-        Vector3f reflectiveColor = hit.getMaterial()->getReflectiveColor();
-        if (reflectiveColor.length() > 1e-3) {
-            Vector3f reflectDir = V - 2 * Vector3f::dot(V, N) * N;
-            reflectDir.normalize();  // 确保归一化
-            
-            // 沿反射方向偏移，防止自交
-            Ray reflectRay(hitPoint + reflectDir * EPSILON, reflectDir);
-            Vector3f reflectCol = IntersectColor(reflectRay, depth + 1);
-            finalColor += reflectiveColor * reflectCol;
-        }
-
-        // ========== 折射（修复版） ==========
-        Vector3f transmissiveColor = hit.getMaterial()->getTransmissiveColor();
-        if (transmissiveColor.length() > 1e-3) {
-            float ior = hit.getMaterial()->getIor();
-            Vector3f refractDir = refract(V, N, ior);
-            if (refractDir.length() > 1e-3) {
-                refractDir.normalize();
-                
-                // 【关键修复】沿折射方向偏移，而不是沿法线
-                Ray refractRay(hitPoint + refractDir * EPSILON, refractDir);
-                Vector3f refractCol = IntersectColor(refractRay, depth + 1);
-                finalColor += transmissiveColor * refractCol;
-            }
-            // 如果全反射，不添加折射贡献
-        }
-
-        return finalColor;
-    } else {
+    if (!isIntersect) {
         return sceneParser->getBackgroundColor();
     }
+    
+    Vector3f finalColor = Vector3f::ZERO;
+    Vector3f hitPoint = hit.getIntersectionPoint();
+    Vector3f N = hit.getNormal().normalized();
+    Vector3f V = ray.getDirection().normalized();
+    
+    // ========== 1. 直接光照 + 正确阴影（修复版） ==========
+    for (int li = 0; li < sceneParser->getNumLights(); ++li) {
+        Light* light = sceneParser->getLight(li);
+        
+        Vector3f L, lightColor;
+        light->getIllumination(hitPoint, L, lightColor);
+
+        // 阴影方向
+        Vector3f shadowDir = L.normalized();
+        Ray shadowRay(hitPoint + shadowDir * EPSILON, shadowDir);
+
+        // 光源距离
+        float lightDist = 1e9;
+        PointLight* pointLight = dynamic_cast<PointLight*>(light);
+        if (pointLight) {
+            lightDist = (pointLight->getPosition() - hitPoint).length();
+        }
+
+        // 阴影衰减：初始 = 完全不遮挡
+        Vector3f shadowAtten(1.0f);
+        Vector3f currentOrigin = shadowRay.getOrigin();
+        float totalT = 0.0f;
+
+        // 循环追踪所有透明遮挡物
+        while (true) {
+            Hit tmpHit;
+            bool hasInter = baseGroup->intersect(Ray(currentOrigin, shadowDir), tmpHit, EPSILON);
+            if (!hasInter) break;
+
+            float t = tmpHit.getT();
+            totalT += t;
+
+            // 超过光源 → 不再计算
+            if (totalT > lightDist - EPSILON) break;
+
+            Material* mat = tmpHit.getMaterial();
+            Vector3f trans = mat->getTransmissiveColor();
+
+            // 完全不透明 → 直接全黑
+            if (trans.x() < 1e-3 && trans.y() < 1e-3 && trans.z() < 1e-3) {
+                shadowAtten = Vector3f::ZERO;
+                break;
+            }
+
+            // 透明：累乘衰减（越叠越暗）
+            shadowAtten = shadowAtten * trans;
+
+            // 前进到下一个点
+            currentOrigin = tmpHit.getIntersectionPoint() + shadowDir * EPSILON;
+        }
+
+        // 应用光照 + RGB阴影（彩色透明阴影更自然）
+        finalColor += hit.getMaterial()->Shade(ray, hit, L, lightColor) * shadowAtten;
+    }
+    
+    // 递归深度终止
+    if (depth >= MAX_DEPTH) {
+        return finalColor;
+    }
+    
+    // ========== 2. 反射 ==========
+    Vector3f reflectiveColor = hit.getMaterial()->getReflectiveColor();
+    if (reflectiveColor.length() > 1e-3) {
+        Vector3f reflectDir = V - 2 * Vector3f::dot(V, N) * N;
+        reflectDir.normalize();
+        Ray reflectRay(hitPoint + reflectDir * EPSILON, reflectDir);
+        Vector3f reflectCol = IntersectColor(reflectRay, depth + 1);
+        finalColor += reflectiveColor * reflectCol;
+    }
+    
+    // ========== 3. 折射（修复全反射黑块） ==========
+    Vector3f transmissiveColor = hit.getMaterial()->getTransmissiveColor();
+    if (transmissiveColor.length() > 1e-3) {
+        float ior = hit.getMaterial()->getIor();
+        Vector3f refractDir = refract(V, N, ior);
+        
+        // 只有有效折射方向才继续（避免全反射发黑）
+        if (refractDir.squaredLength() > 1e-4) {
+            refractDir.normalize();
+            Ray refractRay(hitPoint + refractDir * EPSILON, refractDir);
+            Vector3f refractCol = IntersectColor(refractRay, depth + 1);
+            finalColor += transmissiveColor * refractCol;
+        }
+    }
+    
+    return finalColor;
 }
 
 

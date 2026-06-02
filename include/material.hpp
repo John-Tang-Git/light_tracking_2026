@@ -49,15 +49,27 @@ public:
     }
 
     Vector3f Shade(const Ray &ray, const Hit &hit,
-                   const Vector3f &dirToLight, const Vector3f &lightColor) {
+                const Vector3f &dirToLight, const Vector3f &lightColor) {
         Vector3f shaded = Vector3f::ZERO;
-        // 
         Vector3f N = hit.getNormal().normalized();
         Vector3f L = dirToLight.normalized();
-        Vector3f R = 2*(Vector3f::dot(N, L))*N - L;
         Vector3f V = -ray.getDirection().normalized();
-        Vector3f Diffuse = diffuseColor * clamp(Vector3f::dot(L, N));
-        Vector3f Specular = specularColor * pow(clamp(Vector3f::dot(V, R)), shininess);
+        // 标准Phong反射向量R公式不变
+        Vector3f R = 2.0f * Vector3f::dot(N, L) * N - L;
+        R.normalize();
+
+        // 漫反射：N·L负数直接置0，背光无漫反射
+        float NdotL = std::max(Vector3f::dot(N, L), 0.0f);
+        Vector3f Diffuse = diffuseColor * NdotL;
+
+        // 高光：背光(NdotL<=0)直接高光归零；R·V负数也归零，避免pow负数异常
+        Vector3f Specular = Vector3f::ZERO;
+        if(NdotL > 1e-6f)
+        {
+            float RdotV = std::max(Vector3f::dot(R, V), 0.0f);
+            Specular = specularColor * pow(RdotV, shininess);
+        }
+
         shaded += lightColor * (Diffuse + Specular);
         return shaded;
     }

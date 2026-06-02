@@ -60,6 +60,10 @@ public:
         col = color;
     }
 
+    Vector3f &getPosition() {
+        return position;
+    }
+
 private:
 
     Vector3f position;

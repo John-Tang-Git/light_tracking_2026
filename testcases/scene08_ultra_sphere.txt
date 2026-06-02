@@ -1,155 +1,149 @@
 PerspectiveCamera {
-    center 0 0 10
+    center 0 0 20
     direction 0 0 -1
     up 0 1 0
-    angle 25
-    width 400
-    height 400
+    angle 30
+    width 200
+    height 200
 }
 
 Lights {
-    numLights 2
+    numLights 3
     PointLight {
-        position 0 10 5
-        color 1 1 1
+        position 0.0 5 5
+        color 1.0 1.0 1.0
     }
     PointLight {
-        position -2 5 8
-        color 0.5 0.5 1
+        position -5 3 2
+        color 0.9 0.95 1.0
+    }
+    PointLight {
+        position 5 3 2
+        color 1.0 0.95 0.9
     }
 }
 
 Background {
-    color 0 0 0 
+    color 0.8 0.8 0.2
 }
 
 Materials {
-    numMaterials 7
+    numMaterials 10
 
-    Material {
-        diffuseColor 0.0 0.0 0.0
+    Material { 
+        diffuseColor 0.15 0.15 0.15
         specularColor 1.0 1.0 1.0
-        shininess 200.0
+        shininess 300
         reflectiveColor 0.95 0.95 0.95
         transmissiveColor 0.0 0.0 0.0
         ior 1.0
     }
 
-    Material {
-        diffuseColor 0.3 0.1 0.1
-        specularColor 1.0 1.0 1.0
-        shininess 200.0
-        reflectiveColor 0.15 0.15 0.15
-        transmissiveColor 0.8 0.1 0.1
-        ior 1.52
-    }
-
-    Material {
-        diffuseColor 0.1 0.3 0.1
-        specularColor 1.0 1.0 1.0
-        shininess 200.0
-        reflectiveColor 0.15 0.15 0.15
-        transmissiveColor 0.1 0.8 0.1
-        ior 1.52
-    }
-
-    Material {
-        diffuseColor 0.8 0.7 0.2
-        specularColor 1.0 0.9 0.4
-        shininess 180.0
-        reflectiveColor 0.8 0.7 0.3
+    Material { 
+        diffuseColor 0.85 0.15 0.15
+        specularColor 0.35 0.35 0.35
+        shininess 80
+        reflectiveColor 0.08 0.08 0.08
         transmissiveColor 0.0 0.0 0.0
         ior 1.0
     }
 
     Material {
-        diffuseColor 0.7 0.2 0.7
+        diffuseColor 0.05 0.05 0.15
         specularColor 1.0 1.0 1.0
-        shininess 160.0
-        reflectiveColor 0.5 0.2 0.5
-        transmissiveColor 0.0 0.0 0.0
-        ior 1.0
+        shininess 250
+        reflectiveColor 0.08 0.08 0.08
+        transmissiveColor 0.65 0.75 0.95
+        ior 1.52
     }
 
     Material {
-        diffuseColor 0.3 0.3 0.5
-        specularColor 0.3 0.3 0.3
-        shininess 30.0
+        diffuseColor 0.92 0.92 0.92
+        specularColor 0.03 0.03 0.03
+        shininess 10
         reflectiveColor 0.0 0.0 0.0
+        transmissiveColor 0.0 0.0 0.0
+        ior 1.0
+    }
+
+    Material {
+        diffuseColor 0.20 0.75 0.25
+        specularColor 0.20 0.20 0.20
+        shininess 40
+        reflectiveColor 0.04 0.04 0.04
+        transmissiveColor 0.0 0.0 0.0
+        ior 1.0
+    }
+
+    Material {
+        diffuseColor 0.15 0.15 0.15
+        specularColor 1.0 1.0 1.0
+        shininess 300
+        reflectiveColor 0.95 0.95 0.95
         transmissiveColor 0.0 0.0 0.0
         ior 1.0
     }
 
     Material { 
-        diffuseColor 1 1 1 
-        specularColor 1 1 1
-        shininess 20
-        reflectiveColor 0.0 0.0 0.0
+        diffuseColor 0.88 0.88 0.88
+        specularColor 0.05 0.05 0.05
+        shininess 10
+        reflectiveColor 0.02 0.02 0.02
+        transmissiveColor 0.0 0.0 0.0
+        ior 1.0
+    }
+
+    Material {
+        diffuseColor 0.75 0.85 0.95
+        specularColor 0.05 0.05 0.05
+        shininess 10
+        reflectiveColor 0.02 0.02 0.02
+        transmissiveColor 0.0 0.0 0.0
+        ior 1.0
+    }
+
+    Material {
+        diffuseColor 0.95 0.85 0.75
+        specularColor 0.05 0.05 0.05
+        shininess 10
+        reflectiveColor 0.02 0.02 0.02
+        transmissiveColor 0.0 0.0 0.0
+        ior 1.0
+    }
+
+    Material {
+        diffuseColor 0.85 0.95 0.85
+        specularColor 0.05 0.05 0.05
+        shininess 10
+        reflectiveColor 0.02 0.02 0.02
         transmissiveColor 0.0 0.0 0.0
         ior 1.0
     }
 }
 
 Group {
-    numObjects 7
-
+    numObjects 8
     MaterialIndex 0
-    Transform {
-        Translate -2.2 0.5 -2.2
-        Sphere {
-            center 0 0 0
-            radius 0.7
-        }
-    }
+    Sphere { center 0 0 0 radius 1 }
 
     MaterialIndex 1
-    Transform {
-        Translate -0.7 0.6 -2.6
-        Sphere {
-            center 0 0 0
-            radius 0.7
-        }
-    }
-
-    MaterialIndex 2
-    Transform {
-        Translate 1.7 0.6 -2.6
-        Sphere {
-            center 0 0 0
-            radius 0.4
-        }
-    }
-
-    MaterialIndex 3
-    Transform {
-        Translate 3.2 0.5 -2.2
-        Sphere {
-            center 0 0 0
-            radius 0.7
-        }
-    }
+    Sphere { center 1.25 1.25 1.25 radius 0.8 }
 
     MaterialIndex 4
-    Transform {
-        Translate 0 1.6 -3.2
-        Sphere {
-            center 0 0 0
-            radius 0.6
-        }
-    }
+    Sphere { center -1.25 -1.25 1.25 radius 0.8 }
 
-    MaterialIndex 0
-    Transform {
-        Translate 0 -1.4 -4.8
-        Sphere {
-            center 0 0 0
-            radius 0.5
-        }
-    }
+    MaterialIndex 2
+    Sphere { center -1.25 1.25 -1.25 radius 0.8 }
 
-    MaterialIndex 6
-    Plane {
-	normal 0 1 0
-        offset -2
-    }
+    MaterialIndex 5
+    Sphere { center 1.25 -1.25 -1.25 radius 0.8 }
+
+    MaterialIndex 3
+    Plane { normal 0 1 0 offset -2 }
+
+    MaterialIndex 7
+    Plane { normal -1 0 0 offset -4 } 
+
+    MaterialIndex 8
+    Plane { normal 1 0 0 offset -6 } 
 }
