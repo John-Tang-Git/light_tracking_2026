@@ -18,18 +18,35 @@ using namespace std;
 SceneParser *sceneParser = nullptr;
 Group* baseGroup = nullptr;
 
-const int MAX_DEPTH = 10;  // 通常 3-5 就足够
+const int MAX_DEPTH = 5;  // 通常 3-5 就足够
 const float EPSILON = 1e-4;  // 偏移量，防止自交
 
 // 折射方向计算函数
-Vector3f refract(const Vector3f& V, const Vector3f& N, float eta) {
-    float cosI = Vector3f::dot(V, N);
-    float cosT2 = 1 - eta * eta * (1 - cosI * cosI);
-    if (cosT2 < 0) {
-        return Vector3f::ZERO;  // 全反射
+Vector3f refract(const Vector3f& I, const Vector3f& N, float ior) {
+
+    float cosi = std::max(-1.0f, std::min(1.0f, Vector3f::dot(I, N)));
+
+    float etai = 1.0f;
+    float etat = ior;
+
+    Vector3f n = N;
+
+    if (cosi < 0) {
+        // 从空气进入物体
+        cosi = -cosi;
+    } else {
+        // 从物体离开空气
+        std::swap(etai, etat);
+        n = -N;
     }
-    float cosT = sqrt(cosT2);
-    return eta * (-V) + (eta * cosI - cosT) * N;
+    float eta = etai / etat;
+    float k = 1.0f - eta * eta * (1.0f - cosi * cosi);
+    if (k < 0.0f)
+    {
+        // 全反射
+        return Vector3f::ZERO;
+    }
+    return eta * I + (eta * cosi - sqrt(k)) * n;
 }
 
 Vector3f IntersectColor(Ray ray, int depth) {
@@ -71,17 +88,7 @@ Vector3f IntersectColor(Ray ray, int depth) {
         Vector3f transmissiveColor = hit.getMaterial()->getTransmissiveColor();
         if (transmissiveColor.length() > 1e-3) {
             float ior = hit.getMaterial()->getIor();
-            Vector3f normal = N;
-            float eta = 1.0f / ior;  // 空气到物体
-            
-            // 判断是从空气进入物体，还是从物体射出
-            if (Vector3f::dot(V, N) > 0) {
-                // 光线从内部射出
-                eta = ior;
-                normal = -N;
-            }
-            
-            Vector3f refractDir = refract(V, normal, eta);
+            Vector3f refractDir = refract(V, N, ior);
             if (refractDir.length() > 1e-3) {
                 refractDir.normalize();
                 
