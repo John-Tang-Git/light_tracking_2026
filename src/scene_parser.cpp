@@ -166,6 +166,8 @@ void SceneParser::parseLights() {
             lights[count] = parseDirectionalLight();
         } else if (strcmp(token, "PointLight") == 0) {
             lights[count] = parsePointLight();
+        } else if (strcmp(token, "AreaLight") == 0) {
+            lights[count] = parseAreaLight();
         } else {
             printf("Unknown token in parseLight: '%s'\n", token);
             exit(0);
@@ -205,6 +207,29 @@ Light *SceneParser::parsePointLight() {
     assert (!strcmp(token, "}"));
     return new PointLight(position, color);
 }
+
+// 面光源解析
+Light *SceneParser::parseAreaLight() {
+    char token[MAX_PARSER_TOKEN_LENGTH];
+    Vector3f center, u, v, color;
+    getToken(token);
+    assert (!strcmp(token, "{"));
+    getToken(token);
+    assert (!strcmp(token, "center"));
+    center = readVector3f();
+    getToken(token);
+    assert (!strcmp(token, "u"));
+    u = readVector3f();
+    getToken(token);
+    assert (!strcmp(token, "v"));
+    v = readVector3f();
+    getToken(token);
+    assert (!strcmp(token, "color"));
+    color = readVector3f();
+    getToken(token);
+    assert (!strcmp(token, "}"));
+    return new AreaLight(center, u, v, color);
+}
 // ====================================================================
 // ====================================================================
 
@@ -243,6 +268,8 @@ Material *SceneParser::parseMaterial() {
     Vector3f reflectiveColor(0,0,0), transmissiveColor(0,0,0);
     float shininess = 0;
     float ior = 1.0;
+    Vector3f emission(0,0,0);  // 新增
+
 
     getToken(token);
     assert(!strcmp(token, "{"));
@@ -261,6 +288,8 @@ Material *SceneParser::parseMaterial() {
             transmissiveColor = readVector3f();
         } else if (strcmp(token, "ior") == 0) {               // 新增
             ior = readFloat();
+        } else if (strcmp(token, "emission") == 0) {
+            emission = readVector3f();
         } else if (strcmp(token, "texture") == 0) {
             getToken(filename);
         } else {
@@ -271,7 +300,7 @@ Material *SceneParser::parseMaterial() {
     
     // 需要修改 Material 类的构造函数，增加新参数
     auto *answer = new Material(diffuseColor, specularColor, shininess,
-                                reflectiveColor, transmissiveColor, ior);
+                                reflectiveColor, transmissiveColor, ior, emission);
     return answer;
 }
 

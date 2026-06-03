@@ -8,18 +8,22 @@
 #include "hit.hpp"
 #include <iostream>
 
-// TODO: Implement Shade function that computes Phong introduced in class.
+// Material class for Path Tracing
+// Note: Most rendering logic (sampling, BRDF evaluation) is in main.cpp
 class Material {
 public:
 
     explicit Material(const Vector3f &d_color, const Vector3f &s_color = Vector3f::ZERO, float s = 0, 
-            const Vector3f &r_color = Vector3f::ZERO, const Vector3f &t_color = Vector3f::ZERO, float ior = 1.0f) : 
-            diffuseColor(d_color), specularColor(s_color), shininess(s), reflectiveColor(r_color), transmissiveColor(t_color), ior(ior) {
+            const Vector3f &r_color = Vector3f::ZERO, const Vector3f &t_color = Vector3f::ZERO, float ior = 1.0f,
+            const Vector3f &em = Vector3f::ZERO) : 
+            diffuseColor(d_color), specularColor(s_color), shininess(s), 
+            reflectiveColor(r_color), transmissiveColor(t_color), ior(ior), emission(em) {
 
     }
 
     virtual ~Material() = default;
 
+    // Basic getters
     virtual Vector3f getDiffuseColor() const {
         return diffuseColor;
     }
@@ -44,17 +48,26 @@ public:
         return ior;
     }
 
-    float clamp(float num){
-        return num>0 ? num : 0;
+    virtual Vector3f getEmission() const {
+        return emission;
+    }
+
+    // For NEE: 判断材质是否是光源
+    virtual bool isLight() const {
+        return emission.length() > 1e-3;
+    }
+
+    // For Whitted-Style (keep for compatibility)
+    float clamp(float num) {
+        return num > 0 ? num : 0;
     }
 
     Vector3f Shade(const Ray &ray, const Hit &hit,
                    const Vector3f &dirToLight, const Vector3f &lightColor) {
         Vector3f shaded = Vector3f::ZERO;
-        // 
         Vector3f N = hit.getNormal().normalized();
         Vector3f L = dirToLight.normalized();
-        Vector3f R = 2*(Vector3f::dot(N, L))*N - L;
+        Vector3f R = 2 * (Vector3f::dot(N, L)) * N - L;
         Vector3f V = -ray.getDirection().normalized();
         Vector3f Diffuse = diffuseColor * clamp(Vector3f::dot(L, N));
         Vector3f Specular = specularColor * pow(clamp(Vector3f::dot(V, R)), shininess);
@@ -66,10 +79,10 @@ protected:
     Vector3f diffuseColor;
     Vector3f specularColor;
     float shininess;
-    Vector3f reflectiveColor; // 反射系数
+    Vector3f reflectiveColor;   // 反射系数
     Vector3f transmissiveColor; // 折射系数
-    float ior; // 折射率
+    float ior;                   // 折射率
+    Vector3f emission;          // 自发光（用于面光源）
 };
-
 
 #endif // MATERIAL_H

@@ -10,6 +10,8 @@
 #include "camera.hpp"
 #include "group.hpp"
 #include "light.hpp"
+#include <random>
+#include <chrono>
 
 #include <string>
 
@@ -18,8 +20,40 @@ using namespace std;
 SceneParser *sceneParser = nullptr;
 Group* baseGroup = nullptr;
 
+// 随机数生成器
+static std::mt19937 gen(std::chrono::steady_clock::now().time_since_epoch().count());
+static std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+
 const int MAX_DEPTH = 5;  // 通常 3-5 就足够
 const float EPSILON = 1e-4;  // 偏移量，防止自交
+
+// 漫反射材质：余弦加权采样
+Vector3f sampleDiffuseDirection(const Vector3f& N, float& pdf) {
+    // 局部坐标系
+    Vector3f w = N;
+    Vector3f u = Vector3f::cross((fabs(w.x()) > 0.9f ? Vector3f(0, 1, 0) : Vector3f(1, 0, 0)), w).normalized();
+    Vector3f v = Vector3f::cross(w, u);
+    
+    // 余弦加权采样 (cosθ = sqrt(1 - r2))
+    float r1 = dist(gen);
+    float r2 = dist(gen);
+    float phi = 2.0f * M_PI * r1;
+    float cosTheta = sqrt(1.0f - r2);
+    float sinTheta = sqrt(r2);
+    
+    // 局部方向转世界方向
+    Vector3f localDir(cos(phi) * sinTheta, cosTheta, sin(phi) * sinTheta);
+    Vector3f worldDir = (localDir.x() * u + localDir.y() * w + localDir.z() * v).normalized();
+    
+    pdf = cosTheta / M_PI;  // 余弦加权采样的PDF
+    return worldDir;
+}
+
+// 漫反射BRDF计算
+Vector3f computeDiffuseBRDF(const Vector3f& albedo) {
+    return albedo / M_PI;
+}
+
 
 // 折射方向计算函数
 Vector3f refract(const Vector3f& I, const Vector3f& N, float ior) {
@@ -49,7 +83,150 @@ Vector3f refract(const Vector3f& I, const Vector3f& N, float ior) {
     return eta * I + (eta * cosi - sqrt(k)) * n;
 }
 
+Vector3f pathTracing(Ray ray, int depth) {
+    if (depth >= MAX_DEPTH) {
+        return Vector3f::ZERO;
+    }
 
+    Hit hit;
+    if (!baseGroup->intersect(ray, hit, EPSILON)) {
+        return Vector3f::ZERO;
+    }
+    
+    Vector3f hitPoint = hit.getIntersectionPoint();
+    Vector3f N = hit.getNormal().normalized();
+    Vector3f V = -ray.getDirection().normalized();  // 视线方向
+    Material* mat = hit.getMaterial();
+    
+    // 击中光源
+    if (mat->isLight()) {
+        return mat->getEmission();
+    }
+    
+    Vector3f albedo = mat->getDiffuseColor();
+    Vector3f reflectiveColor = mat->getReflectiveColor();
+    Vector3f transmissiveColor = mat->getTransmissiveColor();
+    
+    // 判断材质类型
+    bool isPerfectReflect = reflectiveColor.length() > 0.9f;
+    bool isPerfectRefract = transmissiveColor.length() > 0.9f;
+    bool isDiffuse = !isPerfectReflect && !isPerfectRefract;
+    
+    // ========== 完美镜面反射 ==========
+    if (isPerfectReflect) {
+        Vector3f I = ray.getDirection().normalized();
+        Vector3f reflectDir = I - 2 * Vector3f::dot(I, N) * N;
+        reflectDir.normalize();
+        Ray reflectRay(hitPoint + reflectDir * EPSILON, reflectDir);
+        Vector3f reflectCol = pathTracing(reflectRay, depth + 1);
+        return reflectiveColor * reflectCol;
+    }
+    
+    // ========== 完美折射 ==========
+    if (isPerfectRefract) {
+        float ior = mat->getIor();
+        Vector3f I = ray.getDirection().normalized();
+        Vector3f refractDir = refract(I, N, ior);
+        
+        // 全反射时当作反射处理
+        if (refractDir.squaredLength() < 1e-4) {
+            Vector3f reflectDir = I - 2 * Vector3f::dot(I, N) * N;
+            reflectDir.normalize();
+            Ray reflectRay(hitPoint + reflectDir * EPSILON, reflectDir);
+            Vector3f reflectCol = pathTracing(reflectRay, depth + 1);
+            Vector3f fallbackReflect = reflectiveColor.length() > 1e-3 ? reflectiveColor : Vector3f(1.0f, 1.0f, 1.0f);
+            return fallbackReflect * reflectCol;
+        }
+        
+        refractDir.normalize();
+        Ray refractRay(hitPoint + refractDir * EPSILON, refractDir);
+        Vector3f refractCol = pathTracing(refractRay, depth + 1);
+        return transmissiveColor * refractCol;
+    }
+    
+    // ========== 漫反射材质（原路径追踪逻辑） ==========
+    Vector3f brdf = albedo / M_PI;
+    
+    // NEE：直接采样光源（修正半透明阴影）
+    Vector3f directLight = Vector3f::ZERO;
+    for (int li = 0; li < sceneParser->getNumLights(); ++li) {
+        Light* light = sceneParser->getLight(li);
+        AreaLight* areaLight = dynamic_cast<AreaLight*>(light);
+        if (areaLight) {
+            float pdf_area;
+            Vector3f lightPoint = areaLight->samplePoint(pdf_area);
+            Vector3f wi = (lightPoint - hitPoint).normalized();
+            float dist2 = (lightPoint - hitPoint).squaredLength();
+            float dist = sqrt(dist2);
+            
+            float cosTheta = std::max(0.0f, Vector3f::dot(wi, N));
+            float cosThetaLight = std::max(0.0f, Vector3f::dot(-wi, areaLight->getNormal()));
+            
+            if (cosTheta <= 0 || cosThetaLight <= 0) continue;
+            
+            // 修正：透过半透明材质累加光照
+            Vector3f transmittance(1.0f, 1.0f, 1.0f);
+            Vector3f currentOrigin = hitPoint + wi * EPSILON;
+            float totalDist = 0.0f;
+            bool fullyOccluded = false;
+            
+            while (totalDist < dist - EPSILON) {
+                Ray shadowRay(currentOrigin, wi);
+                Hit shadowHit;
+                if (!baseGroup->intersect(shadowRay, shadowHit, EPSILON)) {
+                    break;
+                }
+                
+                float hitDist = shadowHit.getT();
+                totalDist += hitDist;
+                
+                if (totalDist > dist - EPSILON) break;
+                
+                Material* hitMat = shadowHit.getMaterial();
+                
+                // 如果是光源，停止
+                if (hitMat->isLight()) {
+                    break;
+                }
+                
+                // 半透明材质：累乘透射率
+                Vector3f trans = hitMat->getTransmissiveColor();
+                if (trans.length() > 1e-3) {
+                    transmittance = transmittance * trans;
+                    // 继续往前
+                    currentOrigin = shadowHit.getIntersectionPoint() + wi * EPSILON;
+                } else {
+                    // 不透明材质：完全遮挡
+                    fullyOccluded = true;
+                    break;
+                }
+            }
+            
+            if (!fullyOccluded && transmittance.length() > 1e-3) {
+                Vector3f Le = areaLight->getColor();
+                float pdf_w = pdf_area * dist2 / cosThetaLight;
+                directLight += brdf * Le * cosTheta / pdf_w * transmittance;
+            }
+        }
+    }
+    
+    // 俄罗斯轮盘赌
+    float survivalProb = 0.8f;
+    if (depth > 3 && dist(gen) > survivalProb) {
+        return directLight;
+    }
+    float invSurvival = (depth > 3) ? (1.0f / survivalProb) : 1.0f;
+    
+    // 间接光照 - 余弦加权采样（修正射线起点方向）
+    float pdf;
+    Vector3f wi = sampleDiffuseDirection(N, pdf);
+    Ray nextRay(hitPoint + wi * EPSILON, wi);  // 修正：之前用的是 N * EPSILON
+    Vector3f Li_in = pathTracing(nextRay, depth + 1);
+    float cosTheta = std::max(0.0f, Vector3f::dot(wi, N));
+    Vector3f indirectLight = brdf * Li_in * cosTheta / pdf * invSurvival;
+    
+    return directLight + indirectLight;
+}
 
 
 Vector3f IntersectColor(Ray ray, int depth) {
@@ -183,15 +360,35 @@ int main(int argc, char *argv[]) {
     baseGroup = sceneParser->getGroup();
 
     // 循 环 屏 幕 空 间 的 像 素
-    for ( int x = 0; x<camera->getWidth(); ++x) {
-        for ( int y = 0; y<camera->getHeight(); ++y) {
-            // 计 算 当 前 像 素 (x , y) 处 相 机 出 射 光 线camRay
-            Ray camRay = sceneParser->getCamera()->generateRay(Vector2f(x, y));
-            // 计 算 光 线 与 场 景 中 物 体 的 相 交 点
-            Vector3f color = IntersectColor(camRay, 0);
+    // for ( int x = 0; x<camera->getWidth(); ++x) {
+    //     for ( int y = 0; y<camera->getHeight(); ++y) {
+    //         // 计 算 当 前 像 素 (x , y) 处 相 机 出 射 光 线camRay
+    //         Ray camRay = sceneParser->getCamera()->generateRay(Vector2f(x, y));
+    //         // 计 算 光 线 与 场 景 中 物 体 的 相 交 点
+    //         Vector3f color = IntersectColor(camRay, 0);
+    //         renderedImg.SetPixel(x, y, color);
+    //     }
+    // }
+
+    int spp = 200;  // 每像素采样数
+    
+    for (int x = 0; x < camera->getWidth(); ++x) {
+        for (int y = 0; y < camera->getHeight(); ++y) {
+            Vector3f color(0, 0, 0);
+            
+            for (int s = 0; s < spp; ++s) {
+                // 随机抖动，抗锯齿
+                float u = (x + dist(gen));
+                float v = (y + dist(gen));
+                Ray camRay = camera->generateRay(Vector2f(u, v));
+                color += pathTracing(camRay, 0);
+            }
+            
+            color = color / spp;
             renderedImg.SetPixel(x, y, color);
         }
     }
+
 
     //保存图片
     renderedImg.SaveImage(argv[2]);
