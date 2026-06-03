@@ -27,7 +27,98 @@ static std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 const int MAX_DEPTH = 5;  // 通常 3-5 就足够
 const float EPSILON = 1e-4;  // 偏移量，防止自交
 
-// 漫反射材质：余弦加权采样
+
+// ========== Cook-Torrance BRDF for Glossy Materials ==========
+
+// GGX 法线分布函数 D
+float GGX_Distribution(const Vector3f& N, const Vector3f& H, float roughness) {
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float NdotH = std::max(0.0f, Vector3f::dot(N, H));
+    float NdotH2 = NdotH * NdotH;
+    
+    float denom = NdotH2 * (a2 - 1.0f) + 1.0f;
+    denom = M_PI * denom * denom;
+    
+    return a2 / denom;
+}
+
+// 几何遮蔽函数 G (Smith-GGX)
+float GGX_Smith_G(const Vector3f& N, const Vector3f& V, const Vector3f& L, float roughness) {
+    float a = roughness;
+    float a2 = a * a;
+    
+    float NdotV = std::max(0.0f, Vector3f::dot(N, V));
+    float NdotL = std::max(0.0f, Vector3f::dot(N, L));
+    
+    float G1_V = 2.0f * NdotV / (NdotV + sqrt(a2 + (1.0f - a2) * NdotV * NdotV));
+    float G1_L = 2.0f * NdotL / (NdotL + sqrt(a2 + (1.0f - a2) * NdotL * NdotL));
+    
+    return G1_V * G1_L;
+}
+
+// 菲涅尔项 F (Schlick 近似)
+Vector3f Schlick_Fresnel(const Vector3f& F0, float VdotH) {
+    return F0 + (Vector3f(1.0f, 1.0f, 1.0f) - F0) * pow(1.0f - VdotH, 5.0f);
+}
+
+// Cook-Torrance BRDF 评估
+Vector3f evaluateCookTorrance(const Vector3f& N, const Vector3f& V, const Vector3f& L, 
+                               const Vector3f& F0, float roughness) {
+    Vector3f H = (V + L).normalized();
+    
+    float NdotL = std::max(0.0f, Vector3f::dot(N, L));
+    float NdotV = std::max(0.0f, Vector3f::dot(N, V));
+    float VdotH = std::max(0.0f, Vector3f::dot(V, H));
+    
+    if (NdotL <= 0.0f || NdotV <= 0.0f) return Vector3f::ZERO;
+    
+    float D = GGX_Distribution(N, H, roughness);
+    float G = GGX_Smith_G(N, V, L, roughness);
+    Vector3f F = Schlick_Fresnel(F0, VdotH);
+    
+    float denom = 4.0f * NdotV * NdotL;
+    if (denom < 1e-6f) return Vector3f::ZERO;
+    
+    return F * D * G / denom;
+}
+
+// 重要性采样 glossy 方向 (基于 GGX)
+Vector3f sampleGlossyDirection(const Vector3f& N, const Vector3f& V, float roughness, Vector3f& F0, float& pdf) {
+    // 局部坐标系
+    Vector3f w = N;
+    Vector3f u = Vector3f::cross((fabs(w.x()) > 0.9f ? Vector3f(0, 1, 0) : Vector3f(1, 0, 0)), w).normalized();
+    Vector3f v = Vector3f::cross(w, u);
+    
+    // GGX 重要性采样微表面法线 H
+    float r1 = dist(gen);
+    float r2 = dist(gen);
+    
+    float a = roughness;
+    float a2 = a * a;
+    
+    float phi = 2.0f * M_PI * r1;
+    float cosTheta = sqrt((1.0f - r2) / (1.0f + (a2 - 1.0f) * r2));
+    float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
+    
+    // 局部 H 方向
+    Vector3f H_local(cos(phi) * sinTheta, cosTheta, sin(phi) * sinTheta);
+    Vector3f H = (H_local.x() * u + H_local.y() * w + H_local.z() * v).normalized();
+    
+    // 反射方向 L = 2*(V·H)H - V
+    float VdotH = std::max(0.0f, Vector3f::dot(V, H));
+    Vector3f L = (2.0f * VdotH * H - V).normalized();
+    
+    // 计算 PDF
+    float NdotH = std::max(0.0f, Vector3f::dot(N, H));
+    float D = GGX_Distribution(N, H, roughness);
+    pdf = D * NdotH / (4.0f * VdotH);
+    
+    if (pdf < 1e-6f) pdf = 1e-6f;
+    
+    return L;
+}
+
 Vector3f sampleDiffuseDirection(const Vector3f& N, float& pdf) {
     // 局部坐标系
     Vector3f w = N;
@@ -48,6 +139,29 @@ Vector3f sampleDiffuseDirection(const Vector3f& N, float& pdf) {
     pdf = cosTheta / M_PI;  // 余弦加权采样的PDF
     return worldDir;
 }
+
+// 采样漫反射或 glossy 方向（根据材质）
+Vector3f sampleDirectionByMaterial(Material* mat, const Vector3f& N, const Vector3f& V, float& pdf, bool& isGlossy) {
+    Vector3f F0 = mat->getSpecularColor();
+    if (F0.length() < 1e-3f) {
+        F0 = Vector3f(0.04f, 0.04f, 0.04f);  // 非金属默认 F0
+    }
+    
+    float roughness = mat->getRoughness();
+    bool glossy = mat->isGlossy();
+    
+    if (glossy && roughness > 0.01f) {
+        isGlossy = true;
+        return sampleGlossyDirection(N, V, roughness, F0, pdf);
+    } else {
+        isGlossy = false;
+        return sampleDiffuseDirection(N, pdf);
+    }
+}
+
+
+// 漫反射材质：余弦加权采样
+
 
 // 漫反射BRDF计算
 Vector3f computeDiffuseBRDF(const Vector3f& albedo) {
@@ -95,10 +209,10 @@ Vector3f pathTracing(Ray ray, int depth) {
     
     Vector3f hitPoint = hit.getIntersectionPoint();
     Vector3f N = hit.getNormal().normalized();
-    Vector3f V = -ray.getDirection().normalized();  // 视线方向
+    Vector3f V = -ray.getDirection().normalized();  // 视线方向（指向相机）
     Material* mat = hit.getMaterial();
     
-    // 击中光源
+    // ========== 击中光源 ==========
     if (mat->isLight()) {
         return mat->getEmission();
     }
@@ -106,11 +220,20 @@ Vector3f pathTracing(Ray ray, int depth) {
     Vector3f albedo = mat->getDiffuseColor();
     Vector3f reflectiveColor = mat->getReflectiveColor();
     Vector3f transmissiveColor = mat->getTransmissiveColor();
+    Vector3f specularColor = mat->getSpecularColor();
+    float roughness = mat->getRoughness();
+    
+    // 菲涅尔基准色 F0（非金属默认 0.04）
+    Vector3f F0 = specularColor;
+    if (F0.length() < 1e-3f) {
+        F0 = Vector3f(0.04f, 0.04f, 0.04f);
+    }
     
     // 判断材质类型
-    bool isPerfectReflect = reflectiveColor.length() > 0.9f;
+    bool isPerfectReflect = reflectiveColor.length() > 0.9f && roughness <= 0.01f;
     bool isPerfectRefract = transmissiveColor.length() > 0.9f;
-    bool isDiffuse = !isPerfectReflect && !isPerfectRefract;
+    bool isGlossy = !isPerfectReflect && !isPerfectRefract && reflectiveColor.length() > 1e-3f && roughness > 0.01f && roughness < 0.99f;
+    bool isDiffuse = !isPerfectReflect && !isPerfectRefract && !isGlossy;
     
     // ========== 完美镜面反射 ==========
     if (isPerfectReflect) {
@@ -144,14 +267,13 @@ Vector3f pathTracing(Ray ray, int depth) {
         return transmissiveColor * refractCol;
     }
     
-    // ========== 漫反射材质（原路径追踪逻辑） ==========
-    Vector3f brdf = albedo / M_PI;
-    
-    // NEE：直接采样光源（修正半透明阴影）
+    // ========== Direct Lighting (NEE - Next Event Estimation) ==========
     Vector3f directLight = Vector3f::ZERO;
+    
     for (int li = 0; li < sceneParser->getNumLights(); ++li) {
         Light* light = sceneParser->getLight(li);
         AreaLight* areaLight = dynamic_cast<AreaLight*>(light);
+        
         if (areaLight) {
             float pdf_area;
             Vector3f lightPoint = areaLight->samplePoint(pdf_area);
@@ -164,7 +286,7 @@ Vector3f pathTracing(Ray ray, int depth) {
             
             if (cosTheta <= 0 || cosThetaLight <= 0) continue;
             
-            // 修正：透过半透明材质累加光照
+            // 阴影测试（支持半透明材质）
             Vector3f transmittance(1.0f, 1.0f, 1.0f);
             Vector3f currentOrigin = hitPoint + wi * EPSILON;
             float totalDist = 0.0f;
@@ -184,16 +306,15 @@ Vector3f pathTracing(Ray ray, int depth) {
                 
                 Material* hitMat = shadowHit.getMaterial();
                 
-                // 如果是光源，停止
+                // 碰到光源，停止
                 if (hitMat->isLight()) {
                     break;
                 }
                 
-                // 半透明材质：累乘透射率
                 Vector3f trans = hitMat->getTransmissiveColor();
                 if (trans.length() > 1e-3) {
+                    // 半透明材质：累乘透射率
                     transmittance = transmittance * trans;
-                    // 继续往前
                     currentOrigin = shadowHit.getIntersectionPoint() + wi * EPSILON;
                 } else {
                     // 不透明材质：完全遮挡
@@ -205,25 +326,53 @@ Vector3f pathTracing(Ray ray, int depth) {
             if (!fullyOccluded && transmittance.length() > 1e-3) {
                 Vector3f Le = areaLight->getColor();
                 float pdf_w = pdf_area * dist2 / cosThetaLight;
-                directLight += brdf * Le * cosTheta / pdf_w * transmittance;
+                
+                // 根据材质类型选择 BRDF
+                Vector3f brdfValue;
+                if (isGlossy) {
+                    brdfValue = evaluateCookTorrance(N, V, wi, F0, roughness);
+                } else {
+                    // 漫反射 BRDF
+                    brdfValue = albedo / M_PI;
+                }
+                
+                directLight += brdfValue * Le * cosTheta / pdf_w * transmittance;
             }
         }
     }
     
-    // 俄罗斯轮盘赌
+    // ========== 俄罗斯轮盘赌 ==========
     float survivalProb = 0.8f;
     if (depth > 3 && dist(gen) > survivalProb) {
         return directLight;
     }
     float invSurvival = (depth > 3) ? (1.0f / survivalProb) : 1.0f;
     
-    // 间接光照 - 余弦加权采样（修正射线起点方向）
+    // ========== Indirect Lighting（根据材质类型采样方向） ==========
     float pdf;
-    Vector3f wi = sampleDiffuseDirection(N, pdf);
-    Ray nextRay(hitPoint + wi * EPSILON, wi);  // 修正：之前用的是 N * EPSILON
+    Vector3f wi;
+    
+    if (isGlossy) {
+        // Glossy 材质：GGX 重要性采样
+        wi = sampleGlossyDirection(N, V, roughness, F0, pdf);
+    } else {
+        // 漫反射材质：余弦加权采样
+        wi = sampleDiffuseDirection(N, pdf);
+    }
+    
+    Ray nextRay(hitPoint + wi * EPSILON, wi);
     Vector3f Li_in = pathTracing(nextRay, depth + 1);
     float cosTheta = std::max(0.0f, Vector3f::dot(wi, N));
-    Vector3f indirectLight = brdf * Li_in * cosTheta / pdf * invSurvival;
+    
+    // 计算 BRDF 值
+    Vector3f brdfValue;
+    if (isGlossy) {
+        brdfValue = evaluateCookTorrance(N, V, wi, F0, roughness);
+    } else {
+        brdfValue = albedo / M_PI;
+    }
+    
+    Vector3f indirectLight = brdfValue * Li_in * cosTheta / pdf * invSurvival;
     
     return directLight + indirectLight;
 }

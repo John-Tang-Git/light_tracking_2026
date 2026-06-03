@@ -42,6 +42,7 @@ Materials {
         transmissiveColor 0.0 0.0 0.0
         ior 1.0
         emission 0.0 0.0 0.0
+        roughness 0.1
     }
 
     Material {

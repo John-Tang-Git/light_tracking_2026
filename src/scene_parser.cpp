@@ -268,8 +268,8 @@ Material *SceneParser::parseMaterial() {
     Vector3f reflectiveColor(0,0,0), transmissiveColor(0,0,0);
     float shininess = 0;
     float ior = 1.0;
-    Vector3f emission(0,0,0);  // 新增
-
+    Vector3f emission(0,0,0);
+    float roughness = 0.0f;  // 默认粗糙度
 
     getToken(token);
     assert(!strcmp(token, "{"));
@@ -282,14 +282,16 @@ Material *SceneParser::parseMaterial() {
             specularColor = readVector3f();
         } else if (strcmp(token, "shininess") == 0) {
             shininess = readFloat();
-        } else if (strcmp(token, "reflectiveColor") == 0) {  // 新增
+        } else if (strcmp(token, "reflectiveColor") == 0) {
             reflectiveColor = readVector3f();
-        } else if (strcmp(token, "transmissiveColor") == 0) { // 新增
+        } else if (strcmp(token, "transmissiveColor") == 0) {
             transmissiveColor = readVector3f();
-        } else if (strcmp(token, "ior") == 0) {               // 新增
+        } else if (strcmp(token, "ior") == 0) {
             ior = readFloat();
         } else if (strcmp(token, "emission") == 0) {
             emission = readVector3f();
+        } else if (strcmp(token, "roughness") == 0) {  // 新增
+            roughness = readFloat();
         } else if (strcmp(token, "texture") == 0) {
             getToken(filename);
         } else {
@@ -298,9 +300,8 @@ Material *SceneParser::parseMaterial() {
         }
     }
     
-    // 需要修改 Material 类的构造函数，增加新参数
     auto *answer = new Material(diffuseColor, specularColor, shininess,
-                                reflectiveColor, transmissiveColor, ior, emission);
+                                reflectiveColor, transmissiveColor, ior, emission, roughness);
     return answer;
 }
 

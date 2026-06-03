@@ -9,15 +9,14 @@
 #include <iostream>
 
 // Material class for Path Tracing
-// Note: Most rendering logic (sampling, BRDF evaluation) is in main.cpp
 class Material {
 public:
 
     explicit Material(const Vector3f &d_color, const Vector3f &s_color = Vector3f::ZERO, float s = 0, 
             const Vector3f &r_color = Vector3f::ZERO, const Vector3f &t_color = Vector3f::ZERO, float ior = 1.0f,
-            const Vector3f &em = Vector3f::ZERO) : 
+            const Vector3f &em = Vector3f::ZERO, float roughness = 0.5f) : 
             diffuseColor(d_color), specularColor(s_color), shininess(s), 
-            reflectiveColor(r_color), transmissiveColor(t_color), ior(ior), emission(em) {
+            reflectiveColor(r_color), transmissiveColor(t_color), ior(ior), emission(em), roughness(roughness) {
 
     }
 
@@ -51,10 +50,26 @@ public:
     virtual Vector3f getEmission() const {
         return emission;
     }
+    
+    virtual float getRoughness() const {
+        return roughness;
+    }
+    
+    virtual void setRoughness(float r) {
+        roughness = r;
+    }
 
-    // For NEE: 判断材质是否是光源
+    // 判断材质类型
     virtual bool isLight() const {
         return emission.length() > 1e-3;
+    }
+    
+    virtual bool isGlossy() const {
+        return reflectiveColor.length() > 1e-3 && roughness > 0.01f && roughness < 0.99f;
+    }
+    
+    virtual bool isPerfectReflect() const {
+        return reflectiveColor.length() > 1e-3 && roughness <= 0.01f;
     }
 
     // For Whitted-Style (keep for compatibility)
@@ -83,6 +98,7 @@ protected:
     Vector3f transmissiveColor; // 折射系数
     float ior;                   // 折射率
     Vector3f emission;          // 自发光（用于面光源）
+    float roughness;            // 粗糙度: 0=完美镜面, 1=完全粗糙
 };
 
 #endif // MATERIAL_H
