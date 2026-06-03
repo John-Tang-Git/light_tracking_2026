@@ -51,6 +51,7 @@ Vector3f refract(const Vector3f& I, const Vector3f& N, float ior) {
 
 
 
+
 Vector3f IntersectColor(Ray ray, int depth) {
     Hit hit;
     bool isIntersect = baseGroup->intersect(ray, hit, EPSILON);
@@ -63,6 +64,9 @@ Vector3f IntersectColor(Ray ray, int depth) {
     Vector3f hitPoint = hit.getIntersectionPoint();
     Vector3f N = hit.getNormal().normalized();
     Vector3f V = ray.getDirection().normalized();
+
+    Vector3f ambient(0.15f,0.15f,0.15f);
+    finalColor += ambient * hit.getMaterial()->getDiffuseColor();
     
     // ========== 1. 直接光照 + 正确阴影（修复版） ==========
     for (int li = 0; li < sceneParser->getNumLights(); ++li) {
@@ -118,6 +122,7 @@ Vector3f IntersectColor(Ray ray, int depth) {
         // 应用光照 + RGB阴影（彩色透明阴影更自然）
         finalColor += hit.getMaterial()->Shade(ray, hit, L, lightColor) * shadowAtten;
     }
+
     
     // 递归深度终止
     if (depth >= MAX_DEPTH) {
