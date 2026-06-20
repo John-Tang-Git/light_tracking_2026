@@ -3,8 +3,8 @@ PerspectiveCamera {
     direction 0 0 -1
     up 0 1 0
     angle 30
-    width 400
-    height 400
+    width 800
+    height 800
 }
 
 Lights {
@@ -35,14 +35,14 @@ Materials {
     }
 
     Material { 
-        diffuseColor 0.85 0.15 0.15
-        specularColor 0.35 0.35 0.35
+        diffuseColor 0 0 0
+        specularColor 1.0 0.78 0.35
         shininess 80
         reflectiveColor 0.08 0.08 0.08
         transmissiveColor 0.0 0.0 0.0
         ior 1.0
         emission 0.0 0.0 0.0
-        roughness 0.1
+        roughness 0.2
     }
 
     Material {

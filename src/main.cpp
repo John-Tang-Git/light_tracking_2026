@@ -519,7 +519,7 @@ int main(int argc, char *argv[]) {
     //     }
     // }
 
-    int spp = 200;  // 每像素采样数
+    int spp = 300;  // 每像素采样数
     
     for (int x = 0; x < camera->getWidth(); ++x) {
         for (int y = 0; y < camera->getHeight(); ++y) {
