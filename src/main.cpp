@@ -235,6 +235,8 @@ Vector3f pathTracing(Ray ray, int depth) {
     bool isGlossy = !isPerfectReflect && !isPerfectRefract && reflectiveColor.length() > 1e-3f && roughness > 0.01f && roughness < 0.99f;
     bool isDiffuse = !isPerfectReflect && !isPerfectRefract && !isGlossy;
     
+    // ========== 关闭glossy ===========
+    // isGlossy = false;
     // ========== 完美镜面反射 ==========
     if (isPerfectReflect) {
         Vector3f I = ray.getDirection().normalized();
@@ -519,7 +521,7 @@ int main(int argc, char *argv[]) {
     //     }
     // }
 
-    int spp = 300;  // 每像素采样数
+    int spp = 100;  // 每像素采样数
     
     for (int x = 0; x < camera->getWidth(); ++x) {
         for (int y = 0; y < camera->getHeight(); ++y) {

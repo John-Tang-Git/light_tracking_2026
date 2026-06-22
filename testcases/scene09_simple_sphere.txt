@@ -3,12 +3,12 @@ PerspectiveCamera {
     direction 0 0 -1
     up 0 1 0
     angle 30
-    width 1000
-    height 1000
+    width 800
+    height 800
 }
 
 Lights {
-    numLights 2
+    numLights 3
     PointLight {
         position 0.0 8 5
         color 1.0 0.95 0.9
@@ -17,6 +17,12 @@ Lights {
         position -3 4 6
         color 0.7 0.8 1.0
     }
+    AreaLight {
+        center 0 3 0
+        u 3 0 0
+        v 0 0 3
+        color 10 10 10
+    }
 }
 
 Background {
@@ -24,7 +30,7 @@ Background {
 }
 
 Materials {
-    numMaterials 10
+    numMaterials 11
 
     Material { 
         diffuseColor 0.15 0.15 0.15
@@ -33,6 +39,7 @@ Materials {
         reflectiveColor 0.95 0.95 0.95
         transmissiveColor 0.0 0.0 0.0
         ior 1.0
+        emission 0.0 0.0 0.0
     }
 
     Material { 
@@ -42,6 +49,7 @@ Materials {
         reflectiveColor 0.08 0.08 0.08
         transmissiveColor 0.0 0.0 0.0
         ior 1.0
+        emission 0.0 0.0 0.0
     }
 
     Material {
@@ -51,6 +59,7 @@ Materials {
         reflectiveColor 0.08 0.08 0.08
         transmissiveColor 1 1 1
         ior 1.52
+        emission 0.0 0.0 0.0
     }
 
     Material {
@@ -60,6 +69,7 @@ Materials {
         reflectiveColor 0.0 0.0 0.0
         transmissiveColor 0.0 0.0 0.0
         ior 1.0
+        emission 0.0 0.0 0.0
     }
 
     Material {
@@ -69,6 +79,7 @@ Materials {
         reflectiveColor 0.04 0.04 0.04
         transmissiveColor 0.0 0.0 0.0
         ior 1.0
+        emission 0.0 0.0 0.0
     }
 
     Material {
@@ -78,6 +89,7 @@ Materials {
         reflectiveColor 0.95 0.95 0.95
         transmissiveColor 0.0 0.0 0.0
         ior 1.0
+        emission 0.0 0.0 0.0
     }
 
     Material { 
@@ -87,6 +99,7 @@ Materials {
         reflectiveColor 0.02 0.02 0.02
         transmissiveColor 0.0 0.0 0.0
         ior 1.0
+        emission 0.0 0.0 0.0
     }
 
     Material {
@@ -96,6 +109,7 @@ Materials {
         reflectiveColor 0.02 0.02 0.02
         transmissiveColor 0.0 0.0 0.0
         ior 1.0
+        emission 0.0 0.0 0.0
     }
 
     Material {
@@ -105,6 +119,7 @@ Materials {
         reflectiveColor 0.02 0.02 0.02
         transmissiveColor 0.0 0.0 0.0
         ior 1.0
+        emission 0.0 0.0 0.0
     }
 
     Material {
@@ -114,11 +129,22 @@ Materials {
         reflectiveColor 0.02 0.02 0.02
         transmissiveColor 0.0 0.0 0.0
         ior 1.0
+        emission 0.0 0.0 0.0
+    }
+
+    Material { 
+        diffuseColor 1.0 1.0 1.0
+        specularColor 1.0 1.0 1.0
+        shininess 0
+        reflectiveColor 0.0 0.0 0.0
+        transmissiveColor 0.0 0.0 0.0
+        ior 1.0
+        emission 1.0 1.0 1.0
     }
 }
 
 Group {
-    numObjects 10
+    numObjects 11
     MaterialIndex 0
     Sphere {
         center 0 0 0
@@ -169,6 +195,12 @@ Group {
     Plane {
         normal 0 -1 0
         offset 4
+    }
+
+    MaterialIndex 10
+    Plane {
+        normal 0 -1 0
+        offset -4.5
     }
 
 }
